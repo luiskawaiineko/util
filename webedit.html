@@ -1,154 +1,795 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>TryIt Local - Sin Anuncios</title>
-    <style>
-        :root { --bg: #1e1e1e; --bar: #2d2d2d; --accent: #0078d7; --text: #d4d4d4; }
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); }
-        
-        .main-container { display: flex; width: 100%; height: 100vh; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TryIt Local - Sin Anuncios</title>
+  <style>
+    :root {
+      --bg: #1e1e1e; --bar: #2d2d2d; --accent: #0078d7; --text: #d4d4d4;
+      --ok: #28a745; --ok2: #218838; --warn: #ffb020; --danger: #dc3545;
+      --consoleBg: #0b0b0b; --consoleText: #b7ff7a;
+    }
 
-        /* Paneles */
-        .panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-        #left-panel { width: 50%; min-width: 200px; }
-        #right-panel { flex-grow: 1; background: white; min-width: 200px; }
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden; background: var(--bg); color: var(--text);
+    }
 
-        /* Divisor */
-        .resizer { width: 6px; cursor: col-resize; background: #000; z-index: 10; transition: background 0.3s; }
-        .resizer:hover { background: var(--accent); }
+    .main-container { display: flex; width: 100%; height: 100vh; }
 
-        /* Toolbar */
-        .toolbar { 
-            display: flex; align-items: center; gap: 10px; padding: 0 15px;
-            background: var(--bar); color: white; height: 45px; border-bottom: 1px solid #444;
-        }
+    /* Paneles */
+    .panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+    #left-panel { width: 50%; min-width: 260px; }
+    #right-panel { flex-grow: 1; min-width: 260px; background: #fff; }
 
-        button { 
-            padding: 6px 15px; cursor: pointer; background: #28a745; color: white; 
-            border: none; border-radius: 4px; font-weight: bold; transition: 0.2s;
-        }
-        button:hover { background: #218838; transform: scale(1.05); }
-        select { background: #3c3c3c; color: white; border: 1px solid #555; padding: 4px; border-radius: 4px; }
+    /* Divisor */
+    .resizer {
+      width: 6px; cursor: col-resize; background: #000; z-index: 10;
+      transition: background 0.2s;
+      touch-action: none;
+    }
+    .resizer:hover { background: var(--accent); }
 
-        /* Editor */
-        textarea {
-            flex-grow: 1; width: 100%; border: none; padding: 15px;
-            font-family: 'Consolas', 'Monaco', monospace; font-size: 14px;
-            background: var(--bg); color: var(--text); outline: none; resize: none;
-            line-height: 1.5;
-        }
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 12px;
+      background: var(--bar); color: white;
+      height: 48px;
+      border-bottom: 1px solid #444;
+      user-select: none;
+    }
 
-        /* Salidas */
-        iframe { width: 100%; height: 100%; border: none; background: white; }
-        #console-log { 
-            width: 100%; height: 100%; background: #000; color: #adff2f; 
-            padding: 20px; font-family: 'Consolas', monospace; overflow-y: auto; 
-            white-space: pre-wrap; display: none; box-sizing: border-box;
-        }
-    </style>
+    .toolbar .group { display: flex; align-items: center; gap: 8px; }
+    .toolbar .spacer { flex: 1; }
+
+    button {
+      padding: 7px 12px;
+      cursor: pointer;
+      background: var(--ok);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      transition: 0.15s;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--ok2); transform: translateY(-1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    button.secondary { background: #3c3c3c; font-weight: 600; }
+    button.secondary:hover { background: #4b4b4b; }
+
+    button.danger { background: var(--danger); }
+    button.danger:hover { background: #b82331; }
+
+    select, input[type="text"] {
+      background: #3c3c3c;
+      color: white;
+      border: 1px solid #555;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      max-width: 340px;
+    }
+
+    label.chk {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: #ddd;
+      cursor: pointer;
+    }
+    label.chk input { transform: translateY(1px); }
+
+    .status {
+      font-size: 12px;
+      color: #9aa0a6;
+      white-space: nowrap;
+    }
+    .status.good { color: #9ef0a8; }
+    .status.warn { color: #ffd18a; }
+
+    /* Editor */
+    textarea {
+      flex-grow: 1;
+      width: 100%;
+      border: none;
+      padding: 14px 14px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      resize: none;
+      line-height: 1.5;
+      tab-size: 4;
+    }
+
+    /* Right: preview + console */
+    #preview-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    iframe {
+      width: 100%;
+      border: none;
+      background: white;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Console */
+    #console-panel {
+      height: 180px;
+      background: var(--consoleBg);
+      color: var(--consoleText);
+      border-top: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      min-height: 120px;
+      max-height: 60vh;
+    }
+
+    #console-toolbar {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border-bottom: 1px solid #1c1c1c;
+      color: #cfcfcf;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    #console-toolbar b { color: #fff; }
+    #console-toolbar .spacer { flex: 1; }
+
+    #console-output {
+      flex: 1;
+      overflow: auto;
+      padding: 10px 12px;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: #ddd;
+    }
+
+    /* Console resizer (vertical) */
+    #console-resizer {
+      height: 6px;
+      cursor: row-resize;
+      background: #000;
+      transition: background 0.2s;
+      touch-action: none;
+    }
+    #console-resizer:hover { background: var(--accent); }
+
+    /* Small screen */
+    @media (max-width: 760px) {
+      #left-panel { width: 55%; min-width: 220px; }
+      .toolbar { flex-wrap: wrap; height: auto; padding: 8px; }
+      .toolbar .spacer { display: none; }
+    }
+  </style>
 </head>
 <body>
 
-<div class="main-container">
-    <div id="left-panel" class="panel">
-        <div class="toolbar">
-            <button onclick="execute()">RUN</button>
-            <select id="mode" onchange="toggleView()">
-                <option value="html">MODO HTML</option>
-                <option value="js">MODO JS (CONSOLE)</option>
-            </select>
-            <span style="font-size: 11px; color: #888;">TryIt Local v1.0</span>
+<div class="main-container" id="container">
+  <div id="left-panel" class="panel">
+    <div class="toolbar">
+      <div class="group">
+        <button id="run-btn" onclick="execute()">RUN</button>
+
+        <label class="chk" title="Ejecuta automáticamente mientras escribes (deshabilita RUN).">
+          <input id="auto-run" type="checkbox" />
+          Auto
+        </label>
+
+        <button class="secondary" id="devtools-btn" onclick="toggleEruda()" title="Activa/Desactiva Eruda dentro del preview.">
+          DevTools
+        </button>
+      </div>
+
+      <div class="group">
+        <select id="slot-select" title="Slots guardados en localStorage"></select>
+        <button class="secondary" onclick="newSlot()" title="Crear un slot nuevo">Nuevo</button>
+        <button class="secondary" onclick="renameSlot()" title="Renombrar el slot actual">Renombrar</button>
+        <button class="secondary" onclick="duplicateSlot()" title="Duplicar el slot actual">Duplicar</button>
+        <button class="danger" onclick="deleteSlot()" title="Borrar el slot actual">Borrar</button>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="group">
+        <span id="save-status" class="status">Listo</span>
+        <span class="status" style="opacity:0.75;">TryIt Local v2.0</span>
+      </div>
+    </div>
+
+    <textarea id="code-editor" spellcheck="false" placeholder="Escribe aquí..."></textarea>
+  </div>
+
+  <div class="resizer" id="gutter" title="Arrastra para redimensionar"></div>
+
+  <div id="right-panel" class="panel">
+    <div id="preview-wrap">
+      <iframe id="output-html" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox"></iframe>
+
+      <div id="console-resizer" title="Arrastra para redimensionar consola"></div>
+
+      <div id="console-panel">
+        <div id="console-toolbar">
+          <span class="pill"><b>CONSOLE</b></span>
+          <span id="console-stats" class="pill">0</span>
+          <span class="spacer"></span>
+          <button class="secondary" onclick="clearConsole()">Limpiar</button>
+          <button class="secondary" onclick="copyConsole()">Copiar</button>
         </div>
-        <textarea id="code-editor" spellcheck="false" placeholder="Escribe aquí..."></textarea>
+        <div id="console-output"></div>
+      </div>
     </div>
-
-    <div class="resizer" id="gutter"></div>
-
-    <div id="right-panel" class="panel">
-        <iframe id="output-html"></iframe>
-        <div id="console-log"></div>
-    </div>
+  </div>
 </div>
 
 <script>
-    const editor = document.getElementById('code-editor');
-    const modeSelector = document.getElementById('mode');
-    const htmlPreview = document.getElementById('output-html');
-    const consoleView = document.getElementById('console-log');
+  const editor = document.getElementById('code-editor');
+  const htmlPreview = document.getElementById('output-html');
+  const runBtn = document.getElementById('run-btn');
+  const autoRunChk = document.getElementById('auto-run');
+  const devtoolsBtn = document.getElementById('devtools-btn');
 
-    // Cargar progreso guardado
-    editor.value = localStorage.getItem('localTryItCode') || "\n<h1>Hola Mundo</h1>";
+  const slotSelect = document.getElementById('slot-select');
+  const saveStatus = document.getElementById('save-status');
 
-    // Lógica del Divisor Arrastrable
+  const consoleOut = document.getElementById('console-output');
+  const consoleStats = document.getElementById('console-stats');
+
+  // ----------------------------
+  // Storage model (slots)
+  // ----------------------------
+  const STORAGE_KEY = 'tryit_slots_v1';
+  const UI_KEY = 'tryit_ui_v1';
+
+  const DEFAULT_CODE = "\n<h1>Hola Mundo</h1>\n<script>\nconsole.log('Hola desde el iframe');\n</" + "script>\n";
+
+  function nowISO() { return new Date().toISOString(); }
+
+  function loadModel() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  function saveModel(model) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
+  }
+
+  function ensureModel() {
+    let model = loadModel();
+    if (!model || !Array.isArray(model.slots) || model.slots.length === 0) {
+      model = {
+        nextId: 2,
+        slots: [{
+          id: 1,
+          name: 'Slot 1',
+          code: localStorage.getItem('localTryItCode') || DEFAULT_CODE, // migración simple
+          updatedAt: nowISO(),
+        }]
+      };
+      saveModel(model);
+    }
+    return model;
+  }
+
+  function loadUIState() {
+    try {
+      const raw = localStorage.getItem(UI_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+
+  function saveUIState(state) {
+    localStorage.setItem(UI_KEY, JSON.stringify(state));
+  }
+
+  function getCurrentSlotId() {
+    const ui = loadUIState();
+    return ui.currentSlotId || null;
+  }
+
+  function setCurrentSlotId(id) {
+    const ui = loadUIState();
+    ui.currentSlotId = id;
+    saveUIState(ui);
+  }
+
+  function getSlotById(model, id) {
+    return model.slots.find(s => s.id === id) || null;
+  }
+
+  function formatSlotLabel(slot) {
+    const safeName = (slot.name || '').trim() || `Slot ${slot.id}`;
+    return `#${slot.id} — ${safeName}`;
+  }
+
+  function refreshSlotSelect() {
+    const model = ensureModel();
+    const currentId = getCurrentSlotId() ?? model.slots[0].id;
+
+    // rebuild options
+    slotSelect.innerHTML = '';
+    for (const s of model.slots) {
+      const opt = document.createElement('option');
+      opt.value = String(s.id);
+      opt.textContent = formatSlotLabel(s);
+      slotSelect.appendChild(opt);
+    }
+
+    // set selection
+    const exists = getSlotById(model, currentId);
+    slotSelect.value = String(exists ? currentId : model.slots[0].id);
+    setCurrentSlotId(Number(slotSelect.value));
+  }
+
+  function loadCurrentSlotIntoEditor() {
+    const model = ensureModel();
+    const currentId = Number(slotSelect.value || getCurrentSlotId() || model.slots[0].id);
+    const slot = getSlotById(model, currentId) || model.slots[0];
+    editor.value = slot.code ?? DEFAULT_CODE;
+    setCurrentSlotId(slot.id);
+    setStatus('Cargado ' + formatSlotLabel(slot), 'good');
+  }
+
+  function persistEditorToCurrentSlot() {
+    const model = ensureModel();
+    const id = Number(slotSelect.value || getCurrentSlotId() || model.slots[0].id);
+    const slot = getSlotById(model, id);
+    if (!slot) return;
+    slot.code = editor.value;
+    slot.updatedAt = nowISO();
+    saveModel(model);
+
+    // legacy key still updated (para no romperte hábitos)
+    localStorage.setItem('localTryItCode', editor.value);
+  }
+
+  function newSlot() {
+    const model = ensureModel();
+    const name = prompt('Nombre del nuevo slot:', `Slot ${model.nextId}`);
+    if (name === null) return;
+
+    const id = model.nextId++;
+    model.slots.push({
+      id,
+      name: (name || '').trim() || `Slot ${id}`,
+      code: DEFAULT_CODE,
+      updatedAt: nowISO(),
+    });
+
+    saveModel(model);
+    refreshSlotSelect();
+    slotSelect.value = String(id);
+    loadCurrentSlotIntoEditor();
+    scheduleAutosave();
+    if (autoRunChk.checked) scheduleAutoExecute();
+  }
+
+  function renameSlot() {
+    const model = ensureModel();
+    const id = Number(slotSelect.value);
+    const slot = getSlotById(model, id);
+    if (!slot) return;
+
+    const name = prompt(`Nuevo nombre para ${formatSlotLabel(slot)}:`, slot.name || '');
+    if (name === null) return;
+
+    slot.name = (name || '').trim() || `Slot ${slot.id}`;
+    slot.updatedAt = nowISO();
+    saveModel(model);
+
+    refreshSlotSelect();
+    slotSelect.value = String(id);
+    setStatus('Renombrado', 'good');
+  }
+
+  function duplicateSlot() {
+    const model = ensureModel();
+    const id = Number(slotSelect.value);
+    const slot = getSlotById(model, id);
+    if (!slot) return;
+
+    const newId = model.nextId++;
+    model.slots.push({
+      id: newId,
+      name: `${(slot.name || `Slot ${slot.id}`)} (copia)`,
+      code: slot.code || '',
+      updatedAt: nowISO(),
+    });
+    saveModel(model);
+
+    refreshSlotSelect();
+    slotSelect.value = String(newId);
+    loadCurrentSlotIntoEditor();
+    setStatus('Duplicado', 'good');
+  }
+
+  function deleteSlot() {
+    const model = ensureModel();
+    if (model.slots.length <= 1) {
+      alert('No puedes borrar el último slot.');
+      return;
+    }
+
+    const id = Number(slotSelect.value);
+    const slot = getSlotById(model, id);
+    if (!slot) return;
+
+    const ok = confirm(`¿Borrar ${formatSlotLabel(slot)}? (esto no se puede deshacer)`);
+    if (!ok) return;
+
+    model.slots = model.slots.filter(s => s.id !== id);
+    saveModel(model);
+
+    refreshSlotSelect();
+    loadCurrentSlotIntoEditor();
+    setStatus('Borrado', 'warn');
+  }
+
+  slotSelect.addEventListener('change', () => {
+    // guarda antes de cambiar
+    persistEditorToCurrentSlot();
+    setCurrentSlotId(Number(slotSelect.value));
+    loadCurrentSlotIntoEditor();
+    if (autoRunChk.checked) scheduleAutoExecute();
+  });
+
+  // ----------------------------
+  // Status + debounce save/autorun
+  // ----------------------------
+  let saveTimer = null;
+  let autoExecTimer = null;
+
+  function setStatus(text, kind) {
+    saveStatus.textContent = text;
+    saveStatus.classList.remove('good', 'warn');
+    if (kind) saveStatus.classList.add(kind);
+  }
+
+  function scheduleAutosave() {
+    setStatus('Editando…', '');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      persistEditorToCurrentSlot();
+      setStatus('Guardado', 'good');
+    }, 250);
+  }
+
+  function scheduleAutoExecute() {
+    clearTimeout(autoExecTimer);
+    autoExecTimer = setTimeout(() => {
+      execute();
+    }, 400);
+  }
+
+  editor.addEventListener('input', () => {
+    scheduleAutosave();
+    if (autoRunChk.checked) scheduleAutoExecute();
+  });
+
+  autoRunChk.addEventListener('change', () => {
+    const on = autoRunChk.checked;
+    runBtn.disabled = on;
+    if (on) {
+      setStatus('Auto-run ON', 'good');
+      scheduleAutoExecute();
+    } else {
+      setStatus('Auto-run OFF', 'warn');
+    }
+  });
+
+  // Atajo: Ctrl+Enter / Cmd+Enter
+  editor.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!autoRunChk.checked) execute();
+    }
+    // TAB
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + "    " + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 4;
+      scheduleAutosave();
+      if (autoRunChk.checked) scheduleAutoExecute();
+    }
+  });
+
+  // ----------------------------
+  // Console capture (iframe)
+  // ----------------------------
+  let logCount = 0;
+  function bumpCount() {
+    consoleStats.textContent = String(logCount);
+  }
+
+  function appendConsole(line) {
+    logCount++;
+    bumpCount();
+    consoleOut.textContent += line + "\n";
+    consoleOut.scrollTop = consoleOut.scrollHeight;
+  }
+
+  function clearConsole() {
+    logCount = 0;
+    bumpCount();
+    consoleOut.textContent = '';
+  }
+
+  function copyConsole() {
+    const text = consoleOut.textContent || '';
+    navigator.clipboard?.writeText(text).then(() => {
+      setStatus('Consola copiada', 'good');
+      setTimeout(() => setStatus('Listo', ''), 800);
+    }).catch(() => {
+      alert('No se pudo copiar (clipboard bloqueado).');
+    });
+  }
+
+  // We inject a small bridge into the iframe to forward logs/errors to parent.
+  function buildInstrumentedHTML(userHTML, enableEruda) {
+    const bridge = `
+<script>
+(() => {
+  const send = (type, payload) => {
+    try { parent.postMessage({ __tryit: true, type, payload }, '*'); } catch {}
+  };
+
+  const safeStr = (v) => {
+    try {
+      if (typeof v === 'string') return v;
+      if (typeof v === 'number' || typeof v === 'boolean' || v === null || v === undefined) return String(v);
+      return JSON.stringify(v, null, 2);
+    } catch {
+      try { return String(v); } catch { return '[unprintable]'; }
+    }
+  };
+
+  const wrap = (fn, type) => (...args) => {
+    send('console', { level: type, args: args.map(safeStr) });
+    fn.apply(console, args);
+  };
+
+  console.log = wrap(console.log, 'log');
+  console.warn = wrap(console.warn, 'warn');
+  console.error = wrap(console.error, 'error');
+
+  window.addEventListener('error', (e) => {
+    send('error', { message: e.message, source: e.filename, line: e.lineno, col: e.colno, stack: e.error && e.error.stack ? String(e.error.stack) : '' });
+  });
+
+  window.addEventListener('unhandledrejection', (e) => {
+    const reason = e.reason;
+    send('error', { message: 'UnhandledPromiseRejection: ' + safeStr(reason), source: '', line: 0, col: 0, stack: reason && reason.stack ? String(reason.stack) : '' });
+  });
+
+  send('ready', { ok: true });
+})();
+</script>
+`;
+
+    const eruda = enableEruda ? `
+<script src="https://cdn.jsdelivr.net/npm/eruda@3/eruda.min.js"></script>
+<script>
+  try { eruda.init(); } catch (e) {}
+</script>
+` : '';
+
+    // Put bridge early so it can capture user's JS logs as soon as possible.
+    // We'll inject it right after <head> if present; otherwise prepend.
+    if (/<head[^>]*>/i.test(userHTML)) {
+      return userHTML.replace(/<head[^>]*>/i, (m) => m + bridge + eruda);
+    }
+    return bridge + eruda + userHTML;
+  }
+
+  window.addEventListener('message', (ev) => {
+    const msg = ev.data;
+    if (!msg || msg.__tryit !== true) return;
+
+    if (msg.type === 'ready') {
+      appendConsole('[iframe] listo');
+      return;
+    }
+
+    if (msg.type === 'console') {
+      const level = msg.payload?.level || 'log';
+      const args = msg.payload?.args || [];
+      const prefix = level === 'warn' ? '[warn]' : level === 'error' ? '[error]' : '[log]';
+      appendConsole(prefix + ' ' + args.join(' '));
+      return;
+    }
+
+    if (msg.type === 'error') {
+      const p = msg.payload || {};
+      appendConsole('[EXCEPTION] ' + (p.message || 'Error'));
+      if (p.source) appendConsole('  at ' + p.source + ':' + (p.line || 0) + ':' + (p.col || 0));
+      if (p.stack) appendConsole(String(p.stack));
+      return;
+    }
+  });
+
+  // ----------------------------
+  // Execute / Eruda toggle
+  // ----------------------------
+  let erudaEnabled = false;
+
+  function execute() {
+    clearConsole();
+    appendConsole('> Ejecutando preview…');
+
+    // Ensure current editor state is persisted
+    persistEditorToCurrentSlot();
+
+    const userHTML = editor.value || '';
+    const finalHTML = buildInstrumentedHTML(userHTML, erudaEnabled);
+
+    const frameDoc = htmlPreview.contentWindow.document;
+    frameDoc.open();
+    frameDoc.write(finalHTML);
+    frameDoc.close();
+
+    if (erudaEnabled) appendConsole('[eruda] ON');
+  }
+
+  function toggleEruda() {
+    erudaEnabled = !erudaEnabled;
+    devtoolsBtn.textContent = erudaEnabled ? 'DevTools ON' : 'DevTools';
+    devtoolsBtn.style.background = erudaEnabled ? '#0f6' : '';
+    devtoolsBtn.style.color = erudaEnabled ? '#000' : '';
+    setStatus(erudaEnabled ? 'Eruda ON' : 'Eruda OFF', erudaEnabled ? 'good' : 'warn');
+
+    // recarga preview para (de)inyectar eruda
+    execute();
+  }
+
+  // expose for inline handlers
+  window.execute = execute;
+  window.toggleEruda = toggleEruda;
+  window.clearConsole = clearConsole;
+  window.copyConsole = copyConsole;
+  window.newSlot = newSlot;
+  window.renameSlot = renameSlot;
+  window.duplicateSlot = duplicateSlot;
+  window.deleteSlot = deleteSlot;
+
+  // ----------------------------
+  // Resizers
+  // ----------------------------
+  // Horizontal (left/right)
+  (function setupMainResizer() {
     const gutter = document.getElementById('gutter');
     const leftPanel = document.getElementById('left-panel');
-    let m_pos;
-    function resize(e){
-        const dx = m_pos - e.x;
-        m_pos = e.x;
-        leftPanel.style.width = (parseInt(getComputedStyle(leftPanel, '').width) - dx) + "px";
-    }
-    gutter.addEventListener("mousedown", function(e){
-        m_pos = e.x;
-        document.addEventListener("mousemove", resize, false);
-    }, false);
-    document.addEventListener("mouseup", function(){
-        document.removeEventListener("mousemove", resize, false);
-    }, false);
+    const container = document.getElementById('container');
 
-    // Cambiar entre HTML y JS visualmente
-    function toggleView() {
-        if (modeSelector.value === 'html') {
-            htmlPreview.style.display = 'block';
-            consoleView.style.display = 'none';
-        } else {
-            htmlPreview.style.display = 'none';
-            consoleView.style.display = 'block';
-        }
+    const MIN_LEFT = 260;
+    const MIN_RIGHT = 260;
+
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+    let dragging = false;
+
+    function onMove(e) {
+      if (!dragging) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+
+      const maxLeft = rect.width - MIN_RIGHT - gutter.offsetWidth;
+      const newLeft = clamp(x, MIN_LEFT, maxLeft);
+      leftPanel.style.width = newLeft + 'px';
     }
 
-    // Ejecutar Código
-    function execute() {
-        const code = editor.value;
-        localStorage.setItem('localTryItCode', code); // Auto-guardar
-
-        if (modeSelector.value === 'html') {
-            const frameDoc = htmlPreview.contentWindow.document;
-            frameDoc.open();
-            frameDoc.write(code);
-            frameDoc.close();
-        } else {
-            consoleView.textContent = "> Ejecutando Script...\n\n";
-            try {
-                // Captura de Logs
-                const oldLog = console.log;
-                let output = "";
-                console.log = (...args) => {
-                    output += args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ') + "\n";
-                };
-
-                // Ejecución
-                new Function(code)();
-                
-                consoleView.textContent += output || "> (Sin salida de consola)";
-                console.log = oldLog;
-            } catch (err) {
-                consoleView.textContent += "❌ ERROR: " + err.message;
-            }
-        }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
     }
 
-    // Permitir TAB en el textarea
-    editor.addEventListener('keydown', function(e) {
-        if (e.key == 'Tab') {
-            e.preventDefault();
-            var start = this.selectionStart;
-            var end = this.selectionEnd;
-            this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
-            this.selectionStart = this.selectionEnd = start + 4;
-        }
+    gutter.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      gutter.setPointerCapture(e.pointerId);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      e.preventDefault();
     });
+  })();
+
+  // Vertical console resizer
+  (function setupConsoleResizer() {
+    const res = document.getElementById('console-resizer');
+    const consolePanel = document.getElementById('console-panel');
+    const previewWrap = document.getElementById('preview-wrap');
+
+    const MIN = 120;
+    const MAX = () => Math.min(window.innerHeight * 0.6, previewWrap.getBoundingClientRect().height - 80);
+
+    let dragging = false;
+
+    function onMove(e) {
+      if (!dragging) return;
+      const wrapRect = previewWrap.getBoundingClientRect();
+
+      // height from bottom of wrap
+      const y = e.clientY - wrapRect.top;
+      const newConsoleH = wrapRect.height - y;
+      const clamped = Math.max(MIN, Math.min(MAX(), newConsoleH));
+      consolePanel.style.height = clamped + 'px';
+    }
+
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+
+    res.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+      res.setPointerCapture(e.pointerId);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      e.preventDefault();
+    });
+  })();
+
+  // ----------------------------
+  // Init
+  // ----------------------------
+  (function init() {
+    refreshSlotSelect();
+    loadCurrentSlotIntoEditor();
+
+    // default: autorun off, run enabled
+    runBtn.disabled = false;
+
+    // first render
+    execute();
+    setStatus('Listo', '');
+  })();
 </script>
 
 </body>
