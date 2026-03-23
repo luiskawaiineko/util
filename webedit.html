@@ -3,70 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TryIt v2.7 - Smooth UX</title>
+    <title>Webedit</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ext-language_tools.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ext-beautify.min.js"></script>
+    
     <style>
         :root {
             --bg: #1e1e1e; --bar: #2d2d2d; --accent: #0078d7; --text: #d4d4d4;
             --ok: #28a745; --ok2: #218838; --danger: #dc3545; --consoleBg: #0b0b0b;
         }
-
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); color: var(--text); }
         .main-container { display: flex; width: 100%; height: 100vh; }
-
-        /* PANELES */
         .panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
         #left-panel { width: 50%; min-width: 100px; border-right: 1px solid #000; }
         #right-panel { flex: 1; min-width: 100px; background: white; position: relative; }
-
-        /* TOOLBAR */
         .toolbar {
-            display: flex; align-items: center; gap: 8px; padding: 0 10px;
+            display: flex; align-items: center; gap: 6px; padding: 0 10px;
             background: var(--bar); color: white; height: 45px; flex-shrink: 0;
             border-bottom: 1px solid #111;
         }
         button { padding: 5px 10px; cursor: pointer; background: var(--ok); color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; }
         button.sec { background: #444; }
         button.danger { background: var(--danger); }
-        button.active { background: var(--accent); }
-        select { background: #3c3c3c; color: white; border: 1px solid #555; padding: 4px; border-radius: 4px; font-size: 12px; }
-
-        /* EDITOR Y SCROLLBAR */
-        #editor-container { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
-        
-        textarea { 
-            flex: 1; width: 100%; border: none; padding: 15px; 
-            font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; 
-            background: var(--bg); color: var(--text); outline: none; resize: none; 
-            tab-size: 4; overflow-y: scroll; /* Scroll siempre visible para referencia */
-            box-sizing: border-box;
-        }
-
-        /* Estilo Scrollbar Minimalista */
-        textarea::-webkit-scrollbar { width: 10px; }
-        textarea::-webkit-scrollbar-track { background: #1e1e1e; }
-        textarea::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; border: 2px solid #1e1e1e; }
-        textarea::-webkit-scrollbar-thumb:hover { background: #666; }
-
-        /* CONSOLA HTML IZQUIERDA */
-        #html-console { 
-            height: 120px; background: var(--consoleBg); color: #b7ff7a; 
-            border-top: 2px solid #333; overflow-y: auto; font-family: monospace; 
-            font-size: 12px; padding: 10px; box-sizing: border-box;
-        }
-
-        /* RESIZERS */
-        .resizer-v { width: 8px; cursor: col-resize; background: #000; z-index: 100; transition: background 0.2s; }
-        .resizer-h { height: 8px; cursor: row-resize; background: #333; z-index: 100; flex-shrink: 0; }
-        .resizer-v:hover, .resizer-h:hover { background: var(--accent); }
-
-        /* DERECHA */
+        select { background: #3c3c3c; color: white; border: 1px solid #555; padding: 4px; border-radius: 4px; font-size: 11px; }
+        #editor-container { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+        #ace-editor { flex: 1; width: 100%; }
+        #html-console { height: 120px; background: var(--consoleBg); color: #b7ff7a; border-top: 2px solid #333; overflow-y: auto; font-family: monospace; font-size: 12px; padding: 10px; box-sizing: border-box; }
+        .resizer-v { width: 8px; cursor: col-resize; background: #000; z-index: 100; }
+        .resizer-h { height: 8px; cursor: row-resize; background: #333; z-index: 100; }
         #output-frame { width: 100%; height: 100%; border: none; background: white; }
-        #js-console { 
-            position: absolute; top:0; left:0; width:100%; height:100%; 
-            background: #000; color: #adff2f; padding: 20px; font-family: monospace; 
-            overflow: auto; white-space: pre-wrap; display: none; box-sizing: border-box;
-        }
-
+        #js-console { position: absolute; top:0; left:0; width:100%; height:100%; background: #000; color: #adff2f; padding: 20px; font-family: monospace; overflow: auto; white-space: pre-wrap; display: none; box-sizing: border-box; }
         #drag-overlay { position: absolute; top:0; left:0; width:100%; height:100%; display:none; z-index: 50; }
     </style>
 </head>
@@ -76,27 +43,25 @@
     <div id="left-panel" class="panel">
         <div class="toolbar">
             <button onclick="execute()">RUN</button>
+            <button class="sec" onclick="beautifyCode()">BEAUTIFY</button>
             <select id="mode-select" onchange="updateUI()">
-                <option value="html">MODO HTML</option>
-                <option value="js">MODO JS (CONSOLE)</option>
+                <option value="html">HTML (MIXTO)</option>
+                <option value="js">JS (PURE)</option>
             </select>
-            <button id="dev-btn" class="sec" onclick="toggleEruda()">DevTools OFF</button>
+            <button id="dev-btn" class="sec" onclick="toggleEruda()">DEVTOOLS</button>
             <select id="slot-select" onchange="loadSlot(this.value)"></select>
-            <button class="sec" onclick="newSlot()" title="Nuevo Slot">+</button>
-            <button class="danger" onclick="deleteSlot()" title="Borrar Slot">🗑️</button>
+            <button class="sec" onclick="newSlot()">+</button>
+            <button class="danger" onclick="deleteSlot()">🗑️</button>
             <div style="flex:1"></div>
             <span id="save-status" style="font-size:9px; opacity:0.4;">Listo</span>
         </div>
-        
         <div id="editor-container">
-            <textarea id="code-editor" spellcheck="false" placeholder="Escribe código aquí..."></textarea>
+            <div id="ace-editor"></div>
             <div class="resizer-h" id="resizer-h"></div>
             <div id="html-console"></div>
         </div>
     </div>
-
     <div class="resizer-v" id="resizer-v"></div>
-
     <div id="right-panel" class="panel">
         <div id="drag-overlay"></div>
         <iframe id="output-frame" sandbox="allow-scripts allow-forms allow-modals allow-same-origin"></iframe>
@@ -105,7 +70,18 @@
 </div>
 
 <script>
-    const editor = document.getElementById('code-editor');
+    // 1. INICIALIZAR EDITOR PRIMERO
+    const aceEditor = ace.edit("ace-editor");
+    const beautify = ace.require("ace/ext/beautify");
+    aceEditor.setTheme("ace/theme/monokai");
+    aceEditor.setOptions({
+        enableBasicAutocompletion: true,
+        enableLiveAutocompletion: true,
+        enableSnippets: true,
+        showPrintMargin: false,
+        fontSize: "14px"
+    });
+
     const modeSelect = document.getElementById('mode-select');
     const htmlConsole = document.getElementById('html-console');
     const jsConsole = document.getElementById('js-console');
@@ -115,47 +91,41 @@
     const leftPanel = document.getElementById('left-panel');
 
     let erudaEnabled = false;
+    let isLoading = false; // Flag para evitar sobrescritura al cargar
 
-    // --- MODELO ---
-    let model = JSON.parse(localStorage.getItem('tryit_v2_7_data')) || {
+    // 2. CARGAR MODELO
+    let model = JSON.parse(localStorage.getItem('tryit_v2_9_data')) || {
         currentId: 1,
-        slots: [{ id: 1, name: "Slot 1", code: "<h1>Hola</h1>", mode: "html" }]
+        slots: [{ id: 1, name: "Main", code: "<h1>Hola Mundo</h1>", mode: "html" }]
     };
 
-    // --- RESIZERS MEJORADOS ---
-    let isDraggingV = false, isDraggingH = false;
-
-    document.getElementById('resizer-v').onmousedown = (e) => { 
-        isDraggingV = true; 
-        document.getElementById('drag-overlay').style.display='block'; 
-        e.preventDefault();
-    };
-
-    resizerH.onmousedown = (e) => { 
-        isDraggingH = true; 
-        e.preventDefault();
-    };
-
-    document.onmousemove = (e) => {
-        if (isDraggingV) {
-            let p = (e.clientX / window.innerWidth) * 100;
-            if (p > 5 && p < 95) leftPanel.style.width = p + "%";
+    // --- FUNCIONES CORE ---
+    function saveCurrent() {
+        if (isLoading) return; // No guardar si estamos cargando un slot
+        let slot = model.slots.find(s => s.id == model.currentId);
+        if (slot) {
+            slot.code = aceEditor.getValue();
+            slot.mode = modeSelect.value;
+            localStorage.setItem('tryit_v2_9_data', JSON.stringify(model));
+            document.getElementById('save-status').textContent = "Auto-save " + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
         }
-        if (isDraggingH) {
-            // Cálculo absoluto desde el fondo para evitar "desplazamientos"
-            let h = window.innerHeight - e.clientY;
-            if (h >= 0 && h < (window.innerHeight - 100)) {
-                htmlConsole.style.height = h + "px";
-            }
-        }
-    };
+    }
 
-    document.onmouseup = () => { 
-        isDraggingV = isDraggingH = false; 
-        document.getElementById('drag-overlay').style.display='none'; 
-    };
+    function loadSlot(id) {
+        isLoading = true; // Bloquear guardado
+        model.currentId = id;
+        let slot = model.slots.find(s => s.id == id);
+        
+        aceEditor.setValue(slot.code || "", -1);
+        modeSelect.value = slot.mode || 'html';
+        
+        // Configurar modo de ACE
+        aceEditor.session.setMode(modeSelect.value === 'html' ? "ace/mode/html" : "ace/mode/javascript");
+        
+        updateUI();
+        setTimeout(() => { isLoading = false; }, 100); // Liberar tras carga
+    }
 
-    // --- UI LOGIC ---
     function updateUI() {
         const mode = modeSelect.value;
         const isHtml = (mode === 'html');
@@ -163,87 +133,25 @@
         htmlConsole.style.display = isHtml ? 'block' : 'none';
         jsConsole.style.display = isHtml ? 'none' : 'block';
         frame.style.visibility = isHtml ? 'visible' : 'hidden';
-        saveCurrent();
+        aceEditor.session.setMode(isHtml ? "ace/mode/html" : "ace/mode/javascript");
         execute();
     }
 
-    function toggleEruda() {
-        erudaEnabled = !erudaEnabled;
-        const btn = document.getElementById('dev-btn');
-        btn.textContent = erudaEnabled ? "DevTools ON" : "DevTools OFF";
-        btn.className = erudaEnabled ? "active" : "sec";
-        execute();
-    }
+    function beautifyCode() { beautify.beautify(aceEditor.session); }
 
-    // --- SLOTS ---
-    function renderSlots() {
-        slotSelect.innerHTML = "";
-        model.slots.forEach(s => {
-            slotSelect.add(new Option(s.name, s.id));
-        });
-        slotSelect.value = model.currentId;
-    }
-
-    function saveCurrent() {
-        let slot = model.slots.find(s => s.id == model.currentId);
-        if (slot) {
-            slot.code = editor.value;
-            slot.mode = modeSelect.value;
-            localStorage.setItem('tryit_v2_7_data', JSON.stringify(model));
-            document.getElementById('save-status').textContent = "Guardado " + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-        }
-    }
-
-    function loadSlot(id) {
-        saveCurrent();
-        model.currentId = id;
-        let slot = model.slots.find(s => s.id == id);
-        editor.value = slot.code;
-        modeSelect.value = slot.mode || 'html';
-        updateUI();
-    }
-
-    function newSlot() {
-        let name = prompt("Nombre del slot:", "Slot " + (model.slots.length + 1));
-        if (!name) return;
-        let id = Date.now();
-        model.slots.push({id, name, code: "", mode: "html"});
-        model.currentId = id;
-        renderSlots();
-        loadSlot(id);
-    }
-
-    function deleteSlot() {
-        if (model.slots.length <= 1) return alert("No puedes borrar el último slot.");
-        if (!confirm("¿Borrar slot actual?")) return;
-        model.slots = model.slots.filter(s => s.id != model.currentId);
-        model.currentId = model.slots[0].id;
-        renderSlots();
-        loadSlot(model.currentId);
-    }
-
-    // --- EJECUCIÓN ---
     function execute() {
-        const code = editor.value;
+        const code = aceEditor.getValue();
         const mode = modeSelect.value;
         if(mode === 'html') htmlConsole.innerHTML = "<div>-- Consola HTML --</div>";
         else jsConsole.textContent = "> Ejecutando JS...\n\n";
 
         const erudaScript = erudaEnabled ? `<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script><script>eruda.init();eruda.show();<\/script>` : "";
-
-        const bridge = `
-            <script>
-                (function() {
-                    const send = (msg) => window.parent.postMessage({type: 'log', data: msg}, '*');
-                    console.log = (...args) => send(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' '));
-                    window.onerror = (m, s, l) => send("❌ ERROR: " + m + " (Línea: " + l + ")");
-                })();
-            <\/script>
-        `;
+        const bridge = `<script>(function(){const s=(m)=>window.parent.postMessage({type:'log',data:m},'*');console.log=(...a)=>s(a.map(x=>typeof x==='object'?JSON.stringify(x,null,2):String(x)).join(' '));window.onerror=(m,s,l)=>s("❌ ERROR: "+m+" (L: "+l+")");})();<\/script>`;
 
         frame.srcdoc = mode === 'html' ? (bridge + erudaScript + code) : (bridge + erudaScript + "<script>" + code + "<\/script>");
     }
 
+    // --- EVENTOS ---
     window.onmessage = (e) => {
         if (e.data.type === 'log') {
             if (modeSelect.value === 'html') {
@@ -259,20 +167,55 @@
         }
     };
 
-    // Auto-save on input
-    editor.oninput = saveCurrent;
+    aceEditor.on("input", () => { if(!isLoading) saveCurrent(); });
 
-    // Tab y Ctrl+Enter
-    editor.onkeydown = (e) => {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            let s = editor.selectionStart;
-            editor.value = editor.value.substring(0, s) + "    " + editor.value.substring(editor.selectionEnd);
-            editor.selectionStart = editor.selectionEnd = s + 4;
+    // Resizers
+    let isDraggingV = false, isDraggingH = false;
+    document.getElementById('resizer-v').onmousedown = (e) => { isDraggingV = true; document.getElementById('drag-overlay').style.display='block'; e.preventDefault(); };
+    resizerH.onmousedown = (e) => { isDraggingH = true; e.preventDefault(); };
+    document.onmousemove = (e) => {
+        if (isDraggingV) {
+            let p = (e.clientX / window.innerWidth) * 100;
+            if (p > 5 && p < 95) leftPanel.style.width = p + "%";
+            aceEditor.resize();
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') execute();
+        if (isDraggingH) {
+            let h = window.innerHeight - e.clientY;
+            if (h >= 0 && h < (window.innerHeight - 100)) {
+                htmlConsole.style.height = h + "px";
+                aceEditor.resize();
+            }
+        }
     };
+    document.onmouseup = () => { isDraggingV = isDraggingH = false; document.getElementById('drag-overlay').style.display='none'; };
 
+    // Slots adicionales
+    function renderSlots() {
+        slotSelect.innerHTML = "";
+        model.slots.forEach(s => { slotSelect.add(new Option(s.name, s.id)); });
+        slotSelect.value = model.currentId;
+    }
+    function newSlot() {
+        let name = prompt("Nombre:");
+        if (!name) return;
+        let id = Date.now();
+        model.slots.push({id, name, code: "", mode: "html"});
+        renderSlots(); loadSlot(id);
+    }
+    function deleteSlot() {
+        if (model.slots.length <= 1) return;
+        if (confirm("¿Borrar?")) {
+            model.slots = model.slots.filter(s => s.id != model.currentId);
+            renderSlots(); loadSlot(model.slots[0].id);
+        }
+    }
+    function toggleEruda() {
+        erudaEnabled = !erudaEnabled;
+        document.getElementById('dev-btn').style.background = erudaEnabled ? "var(--accent)" : "#444";
+        execute();
+    }
+
+    // Inicio
     renderSlots();
     loadSlot(model.currentId);
 </script>
