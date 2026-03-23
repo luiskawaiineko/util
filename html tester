@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>TryIt Local - Sin Anuncios</title>
+    <style>
+        :root { --bg: #1e1e1e; --bar: #2d2d2d; --accent: #0078d7; --text: #d4d4d4; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); }
+        
+        .main-container { display: flex; width: 100%; height: 100vh; }
+
+        /* Paneles */
+        .panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        #left-panel { width: 50%; min-width: 200px; }
+        #right-panel { flex-grow: 1; background: white; min-width: 200px; }
+
+        /* Divisor */
+        .resizer { width: 6px; cursor: col-resize; background: #000; z-index: 10; transition: background 0.3s; }
+        .resizer:hover { background: var(--accent); }
+
+        /* Toolbar */
+        .toolbar { 
+            display: flex; align-items: center; gap: 10px; padding: 0 15px;
+            background: var(--bar); color: white; height: 45px; border-bottom: 1px solid #444;
+        }
+
+        button { 
+            padding: 6px 15px; cursor: pointer; background: #28a745; color: white; 
+            border: none; border-radius: 4px; font-weight: bold; transition: 0.2s;
+        }
+        button:hover { background: #218838; transform: scale(1.05); }
+        select { background: #3c3c3c; color: white; border: 1px solid #555; padding: 4px; border-radius: 4px; }
+
+        /* Editor */
+        textarea {
+            flex-grow: 1; width: 100%; border: none; padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace; font-size: 14px;
+            background: var(--bg); color: var(--text); outline: none; resize: none;
+            line-height: 1.5;
+        }
+
+        /* Salidas */
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+        #console-log { 
+            width: 100%; height: 100%; background: #000; color: #adff2f; 
+            padding: 20px; font-family: 'Consolas', monospace; overflow-y: auto; 
+            white-space: pre-wrap; display: none; box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div id="left-panel" class="panel">
+        <div class="toolbar">
+            <button onclick="execute()">RUN</button>
+            <select id="mode" onchange="toggleView()">
+                <option value="html">MODO HTML</option>
+                <option value="js">MODO JS (CONSOLE)</option>
+            </select>
+            <span style="font-size: 11px; color: #888;">TryIt Local v1.0</span>
+        </div>
+        <textarea id="code-editor" spellcheck="false" placeholder="Escribe aquí..."></textarea>
+    </div>
+
+    <div class="resizer" id="gutter"></div>
+
+    <div id="right-panel" class="panel">
+        <iframe id="output-html"></iframe>
+        <div id="console-log"></div>
+    </div>
+</div>
+
+<script>
+    const editor = document.getElementById('code-editor');
+    const modeSelector = document.getElementById('mode');
+    const htmlPreview = document.getElementById('output-html');
+    const consoleView = document.getElementById('console-log');
+
+    // Cargar progreso guardado
+    editor.value = localStorage.getItem('localTryItCode') || "\n<h1>Hola Mundo</h1>";
+
+    // Lógica del Divisor Arrastrable
+    const gutter = document.getElementById('gutter');
+    const leftPanel = document.getElementById('left-panel');
+    let m_pos;
+    function resize(e){
+        const dx = m_pos - e.x;
+        m_pos = e.x;
+        leftPanel.style.width = (parseInt(getComputedStyle(leftPanel, '').width) - dx) + "px";
+    }
+    gutter.addEventListener("mousedown", function(e){
+        m_pos = e.x;
+        document.addEventListener("mousemove", resize, false);
+    }, false);
+    document.addEventListener("mouseup", function(){
+        document.removeEventListener("mousemove", resize, false);
+    }, false);
+
+    // Cambiar entre HTML y JS visualmente
+    function toggleView() {
+        if (modeSelector.value === 'html') {
+            htmlPreview.style.display = 'block';
+            consoleView.style.display = 'none';
+        } else {
+            htmlPreview.style.display = 'none';
+            consoleView.style.display = 'block';
+        }
+    }
+
+    // Ejecutar Código
+    function execute() {
+        const code = editor.value;
+        localStorage.setItem('localTryItCode', code); // Auto-guardar
+
+        if (modeSelector.value === 'html') {
+            const frameDoc = htmlPreview.contentWindow.document;
+            frameDoc.open();
+            frameDoc.write(code);
+            frameDoc.close();
+        } else {
+            consoleView.textContent = "> Ejecutando Script...\n\n";
+            try {
+                // Captura de Logs
+                const oldLog = console.log;
+                let output = "";
+                console.log = (...args) => {
+                    output += args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ') + "\n";
+                };
+
+                // Ejecución
+                new Function(code)();
+                
+                consoleView.textContent += output || "> (Sin salida de consola)";
+                console.log = oldLog;
+            } catch (err) {
+                consoleView.textContent += "❌ ERROR: " + err.message;
+            }
+        }
+    }
+
+    // Permitir TAB en el textarea
+    editor.addEventListener('keydown', function(e) {
+        if (e.key == 'Tab') {
+            e.preventDefault();
+            var start = this.selectionStart;
+            var end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 4;
+        }
+    });
+</script>
+
+</body>
+</html>
