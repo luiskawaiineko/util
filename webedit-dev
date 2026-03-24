@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webedit Pro - Bookmarks</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ext-language_tools.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ext-beautify.min.js"></script>
+    
+    <style>
+        :root {
+            --bg: #1e1e1e; --bar: #2d2d2d; --accent: #0078d7; --text: #d4d4d4;
+            --ok: #28a745; --danger: #dc3545; --consoleBg: #0b0b0b; --border: #000;
+        }
+        [data-theme="light"] {
+            --bg: #ffffff; --bar: #f3f3f3; --accent: #0078d7; --text: #333333;
+            --ok: #2ecc71; --danger: #e74c3c; --consoleBg: #f9f9f9; --border: #ccc;
+        }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); color: var(--text); }
+        .main-container { display: flex; width: 100%; height: 100vh; }
+        .panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        #left-panel { width: 50%; min-width: 100px; border-right: 1px solid var(--border); }
+        #right-panel { flex: 1; min-width: 100px; background: white; position: relative; }
+        .toolbar {
+            display: flex; align-items: center; gap: 6px; padding: 0 10px;
+            background: var(--bar); color: var(--text); height: 45px; flex-shrink: 0;
+            border-bottom: 1px solid var(--border); overflow-x: auto;
+        }
+        button { padding: 5px 10px; cursor: pointer; background: var(--ok); color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        button.sec { background: #555; }
+        [data-theme="light"] button.sec { background: #ccc; color: #333; }
+        button.active { background: var(--accent); box-shadow: inset 0 0 5px rgba(0,0,0,0.5); }
+        button.pop { background: #6a1b9a; }
+        button.danger { background: var(--danger); }
+        select { background: var(--bar); color: var(--text); border: 1px solid var(--accent); padding: 4px; border-radius: 4px; font-size: 11px; }
+        #editor-container { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+        #ace-editor { flex: 1; width: 100%; }
+        #html-console { 
+            height: 120px; background: var(--consoleBg); color: #b7ff7a; 
+            border-top: 2px solid var(--accent); overflow-y: auto; font-family: monospace; 
+            font-size: 12px; padding: 10px; box-sizing: border-box; 
+        }
+        [data-theme="light"] #html-console { color: #1a5a06; }
+        .resizer-v { width: 8px; cursor: col-resize; background: var(--border); z-index: 100; }
+        .resizer-h { height: 8px; cursor: row-resize; background: var(--bar); z-index: 100; }
+        #output-frame { width: 100%; height: 100%; border: none; background: white; }
+        #js-console { position: absolute; top:0; left:0; width:100%; height:100%; background: #000; color: #adff2f; padding: 20px; font-family: monospace; overflow: auto; display: none; box-sizing: border-box; }
+        #drag-overlay { position: absolute; top:0; left:0; width:100%; height:100%; display:none; z-index: 50; }
+
+        /* ESTILO PARA MARCAPAGINAS */
+        .ace_gutter-cell.ace_bookmark {
+            background-color: #ff4444 !important;
+            border-radius: 50%;
+            transform: scale(0.5);
+            box-shadow: 0 0 8px rgba(255,0,0,0.8);
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div class="main-container">
+    <div id="left-panel" class="panel">
+        <div class="toolbar">
+            <button onclick="execute()">RUN</button>
+            <button class="sec" onclick="beautifyCode()">BEAUTIFY</button>
+            <button class="sec" id="theme-btn" onclick="toggleTheme()">☀️ LIGHT</button>
+            <button class="sec" id="dev-btn" onclick="toggleEruda()">DEVTOOLS</button>
+            <button class="pop" onclick="openPopOut()">POP-OUT ↗</button>
+            <select id="mode-select" onchange="updateUI()">
+                <option value="html">HTML MIXED</option>
+                <option value="js">JS PURE</option>
+            </select>
+            <select id="slot-select" onchange="loadSlot(this.value)"></select>
+            <button class="sec" onclick="newSlot()">+</button>
+            <button class="danger" onclick="deleteSlot()">🗑️</button>
+            
+            <select id="bookmark-select" onchange="jumpToBookmark(this.value)">
+                <option value="">-- MARCAS --</option>
+            </select>
+
+            <div style="flex:1"></div>
+            <span id="save-status" style="font-size:9px; opacity:0.4;">Listo</span>
+        </div>
+        <div id="editor-container">
+            <div id="ace-editor"></div>
+            <div class="resizer-h" id="resizer-h"></div>
+            <div id="html-console"></div>
+        </div>
+    </div>
+    <div class="resizer-v" id="resizer-v"></div>
+    <div id="right-panel" class="panel">
+        <div id="drag-overlay"></div>
+        <iframe id="output-frame" sandbox="allow-scripts allow-forms allow-modals allow-same-origin"></iframe>
+        <div id="js-console"></div>
+    </div>
+</div>
+
+<script>
+    ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/");
+    const aceEditor = ace.edit("ace-editor");
+    const beautify = ace.require("ace/ext/beautify");
+    
+    aceEditor.setOptions({
+        theme: "ace/theme/monokai",
+        mode: "ace/mode/html",
+        enableBasicAutocompletion: true,
+        enableLiveAutocompletion: true,
+        enableSnippets: true,
+        showPrintMargin: false,
+        fontSize: "14px"
+    });
+
+    const body = document.body;
+    const themeBtn = document.getElementById('theme-btn');
+    const devBtn = document.getElementById('dev-btn');
+    const modeSelect = document.getElementById('mode-select');
+    const htmlConsole = document.getElementById('html-console');
+    const jsConsole = document.getElementById('js-console');
+    const frame = document.getElementById('output-frame');
+    const slotSelect = document.getElementById('slot-select');
+    const leftPanel = document.getElementById('left-panel');
+    const rightPanel = document.getElementById('right-panel');
+    const resizerV = document.querySelector('.resizer-v');
+
+    let isLoading = false;
+    let erudaEnabled = false;
+    let externalWindow = null;
+    let currentBlobUrl = null;
+
+    let model = JSON.parse(localStorage.getItem('webedit_v3_final')) || {
+        currentId: 1,
+        slots: [{ id: 1, name: "Main", code: "<h1>TryIt v3.2.2</h1>", mode: "html", bookmarks: {} }]
+    };
+
+    function saveCurrent() {
+        if (isLoading) return;
+        const currentSlot = model.slots.find(s => s.id == model.currentId);
+        if (currentSlot) {
+            currentSlot.code = aceEditor.getValue();
+            currentSlot.mode = modeSelect.value;
+            // Los bookmarks ya se actualizan en el objeto currentSlot mediante los eventos
+            localStorage.setItem('webedit_v3_final', JSON.stringify(model));
+            document.getElementById('save-status').textContent = "Guardado " + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        }
+    }
+
+    function loadSlot(id) {
+        isLoading = true;
+        model.currentId = id;
+        const slot = model.slots.find(s => s.id == id);
+        if (slot) {
+            aceEditor.setValue(slot.code || "", -1);
+            modeSelect.value = slot.mode || 'html'; 
+            
+            const aceMode = (slot.mode === 'js') ? "ace/mode/javascript" : "ace/mode/html";
+            aceEditor.session.setMode(aceMode);
+            
+            // Cargar Marcapáginas visualmente
+            aceEditor.session.clearBreakpoints();
+            if (slot.bookmarks) {
+                Object.keys(slot.bookmarks).forEach(row => {
+                    aceEditor.session.setBreakpoint(row, "ace_bookmark");
+                });
+            }
+            updateBookmarkUI();
+            updateUI(); 
+        }
+        setTimeout(() => { isLoading = false; }, 100);
+    }
+
+    // --- LOGICA DE MARCAPAGINAS ---
+    function updateBookmarkUI() {
+        const bookmarkSelect = document.getElementById('bookmark-select');
+        const currentSlot = model.slots.find(s => s.id == model.currentId);
+        bookmarkSelect.innerHTML = '<option value="">-- MARCAS --</option>';
+        
+        if (currentSlot && currentSlot.bookmarks) {
+            // Ordenar por número de línea
+            const rows = Object.keys(currentSlot.bookmarks).sort((a, b) => a - b);
+            rows.forEach(row => {
+                const option = new Option(`${parseInt(row) + 1}: ${currentSlot.bookmarks[row]}`, row);
+                bookmarkSelect.add(option);
+            });
+        }
+    }
+
+    function jumpToBookmark(row) {
+        if (row === "") return;
+        aceEditor.gotoLine(parseInt(row) + 1, 0, true);
+        aceEditor.focus();
+    }
+
+    aceEditor.on("guttermousedown", function(e) {
+        const target = e.domEvent.target; 
+        if (target.className.indexOf("ace_gutter-cell") == -1) return; 
+
+        const row = e.getDocumentPosition().row;
+        const currentSlot = model.slots.find(s => s.id == model.currentId);
+        
+        if (!currentSlot.bookmarks) currentSlot.bookmarks = {};
+
+        if (currentSlot.bookmarks[row]) {
+            delete currentSlot.bookmarks[row];
+            aceEditor.session.clearBreakpoint(row);
+        } else {
+            const name = prompt("Nombre del marcapáginas:");
+            if (name) {
+                currentSlot.bookmarks[row] = name;
+                aceEditor.session.setBreakpoint(row, "ace_bookmark");
+            }
+        }
+        updateBookmarkUI();
+        saveCurrent();
+        e.stop();
+    });
+    // ------------------------------
+
+    function toggleEruda() {
+        erudaEnabled = !erudaEnabled;
+        devBtn.classList.toggle('active', erudaEnabled);
+        execute();
+    }
+
+    function execute() {
+        const code = aceEditor.getValue();
+        const mode = modeSelect.value;
+        const erudaScript = erudaEnabled ? `<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script><script>eruda.init();eruda.show();<\/script>` : "";
+        
+        const bridge = `
+            <script>
+                (function() {
+                    const target = window.opener || window.parent;
+                    const send = (msg) => { if (target) target.postMessage({type: 'log', data: msg}, '*'); };
+                    console.log = (...args) => {
+                        const output = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+                        send(output);
+                        const localCons = document.getElementById('local-js-console');
+                        if(localCons) { localCons.textContent += output + "\\n"; localCons.scrollTop = localCons.scrollHeight; }
+                    };
+                    window.onerror = (m, s, l) => console.log("❌ ERROR: " + m + " (L:" + l + ")");
+                })();
+            <\/script>
+        `;
+
+        const jsMirrorStyle = `
+            <style>
+                body { background: #000; color: #adff2f; font-family: monospace; padding: 20px; margin: 0; overflow: auto; white-space: pre-wrap; }
+                #local-js-console { width: 100%; height: 100%; }
+            </style>
+        `;
+
+        let content = "";
+        if (mode === 'html') {
+            content = `<!DOCTYPE html><html><head><meta charset="UTF-8">${bridge}${erudaScript}</head><body>${code}</body></html>`;
+        } else {
+            content = `<!DOCTYPE html><html><head><meta charset="UTF-8">${jsMirrorStyle}${bridge}${erudaScript}</head>
+            <body><div id="local-js-console">> Ejecutando JS...\n\n</div><script>window.onload = () => { try { ${code} } catch(e) { console.log("❌ ERROR: " + e.message); } };<\/script></body></html>`;
+        }
+
+        if (externalWindow && !externalWindow.closed) {
+            if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+            const blob = new Blob([content], { type: 'text/html' });
+            currentBlobUrl = URL.createObjectURL(blob);
+            externalWindow.location.href = currentBlobUrl;
+        } else {
+            frame.srcdoc = content;
+        }
+
+        htmlConsole.innerHTML = "<div style='color:#555; border-bottom:1px solid #333'>-- Sync OK --</div>";
+        if(mode === 'js') {
+            jsConsole.textContent = "> Mirroring to Pop-out...\n\n";
+        }
+    }
+
+    window.onmessage = (e) => {
+        if (e.data && e.data.type === 'log') {
+            const div = document.createElement('div');
+            div.textContent = "> " + e.data.data;
+            div.style.borderBottom = "1px solid #333";
+            div.style.padding = "3px 0";
+            div.style.whiteSpace = "pre-wrap";
+            htmlConsole.appendChild(div);
+            htmlConsole.scrollTop = htmlConsole.scrollHeight;
+
+            if (modeSelect.value === 'js') {
+                jsConsole.textContent += e.data.data + "\n";
+                jsConsole.scrollTop = jsConsole.scrollHeight;
+            }
+        }
+    };
+
+    function renderSlots() {
+        slotSelect.innerHTML = "";
+        model.slots.forEach(s => slotSelect.add(new Option(s.name, s.id)));
+        slotSelect.value = model.currentId;
+    }
+    function newSlot() {
+        const n = prompt("Nombre:"); if (!n) return;
+        const id = Date.now(); model.slots.push({ id, name: n, code: "", mode: "html", bookmarks: {} });
+        renderSlots(); loadSlot(id);
+    }
+    function deleteSlot() {
+        if (model.slots.length <= 1) return;
+        if (confirm("¿Borrar?")) {
+            model.slots = model.slots.filter(s => s.id != model.currentId);
+            renderSlots(); loadSlot(model.slots[0].id);
+        }
+    }
+    function toggleTheme() {
+        const isDark = body.getAttribute('data-theme') === 'dark';
+        body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+        aceEditor.setTheme(isDark ? "ace/theme/chrome" : "ace/theme/monokai");
+        themeBtn.textContent = isDark ? "🌙 DARK" : "☀️ LIGHT";
+    }
+    function openPopOut() {
+        externalWindow = window.open("", "WebeditPreview", "width=800,height=600");
+        leftPanel.style.width = "100%";
+        rightPanel.style.display = "none";
+        resizerV.style.display = "none";
+        aceEditor.resize();
+        execute();
+    }
+    function updateUI() {
+        const isHtml = (modeSelect.value === 'html');
+        document.getElementById('resizer-h').style.display = isHtml ? 'block' : 'none';
+        htmlConsole.style.display = isHtml ? 'block' : 'none';
+        jsConsole.style.display = (isHtml || (externalWindow && !externalWindow.closed)) ? 'none' : 'block';
+        aceEditor.session.setMode(isHtml ? "ace/mode/html" : "ace/mode/javascript");
+        execute();
+    }
+    
+    function beautifyCode() { beautify.beautify(aceEditor.session); }
+    let isDraggingV = false, isDraggingH = false;
+    resizerV.onmousedown = (e) => { isDraggingV = true; document.getElementById('drag-overlay').style.display='block'; e.preventDefault(); };
+    document.getElementById('resizer-h').onmousedown = (e) => { isDraggingH = true; e.preventDefault(); };
+    document.onmousemove = (e) => {
+        if (isDraggingV) { leftPanel.style.width = (e.clientX / window.innerWidth) * 100 + "%"; aceEditor.resize(); }
+        if (isDraggingH) { htmlConsole.style.height = (window.innerHeight - e.clientY) + "px"; aceEditor.resize(); }
+    };
+    document.onmouseup = () => { isDraggingV = isDraggingH = false; document.getElementById('drag-overlay').style.display='none'; };
+    
+    aceEditor.on("input", () => { saveCurrent(); });
+
+    renderSlots();
+    loadSlot(model.currentId);
+</script>
+</body>
+</html>
