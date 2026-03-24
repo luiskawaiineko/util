@@ -62,7 +62,10 @@
 <div class="main-container">
     <div id="left-panel" class="panel">
         <div class="toolbar">
-            <button onclick="execute()">RUN</button>
+            <button id="run-btn" onclick="execute()">RUN</button>
+            <label style="font-size: 10px; display: flex; align-items: center; gap: 4px; cursor: pointer; opacity: 0.8;">
+                <input type="checkbox" id="auto-run-check" onchange="toggleAutoRun()"> AUTO
+            </label>
             <button class="sec" onclick="beautifyCode()">BEAUTIFY</button>
             <button class="sec" id="theme-btn" onclick="toggleTheme()">☀️ LIGHT</button>
             <button class="sec" id="dev-btn" onclick="toggleEruda()">DEVTOOLS</button>
@@ -344,6 +347,29 @@
 
     renderSlots();
     loadSlot(model.currentId);
+
+    const autoRunCheck = document.getElementById('auto-run-check');
+const runBtn = document.getElementById('run-btn');
+
+function toggleAutoRun() {
+    const isAuto = autoRunCheck.checked;
+    // Desactivamos o activamos el botón RUN según el checkbox
+    runBtn.disabled = isAuto;
+    runBtn.style.opacity = isAuto ? "0.5" : "1";
+    runBtn.style.cursor = isAuto ? "not-allowed" : "pointer";
+    
+    // Si lo activamos, ejecutamos una vez para sincronizar
+    if (isAuto) execute();
+}
+
+// Modificamos tu evento aceEditor.on("input", ...) actual:
+aceEditor.on("input", () => { 
+    saveCurrent(); 
+    // Si Auto-run está activo, ejecutamos el código
+    if (autoRunCheck.checked) {
+        execute();
+    }
+});
 </script>
 </body>
 </html>
