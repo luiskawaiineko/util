@@ -75,6 +75,7 @@
                 <option value="js">JS PURE</option>
             </select>
             <select id="slot-select" onchange="loadSlot(this.value)"></select>
+            <button class="pop" onclick="openPermaEditor()">PermaJS ⚙️</button>
             <button class="sec" onclick="newSlot()">+</button>
             <button class="danger" onclick="deleteSlot()">🗑️</button>
             
@@ -114,6 +115,45 @@
         fontSize: "14px"
     });
 
+    function openPermaEditor() {
+    const win = window.open("", "PermaJSEditor", "width=600,height=400");
+    
+    // Contenido del nuevo editor
+    win.document.write(`
+        <html>
+        <head>
+            <title>PermaJS Editor</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ace.js"><\/script>
+            <style>
+                body { margin:0; display:flex; flex-direction:column; height:100vh; }
+                #editor { flex:1; }
+                .bar { background:#333; padding:10px; color:white; display:flex; justify-content:space-between; }
+            </style>
+        </head>
+        <body>
+            <div class="bar">
+                <span>Configuración Global (PermaJS)</span>
+                <button onclick="saveAndClose()">Guardar y Cerrar</button>
+            </div>
+            <div id="editor"></div>
+            <script>
+                const editor = ace.edit("editor");
+                editor.setTheme("ace/theme/monokai");
+                editor.session.setMode("ace/mode/javascript");
+                editor.setValue(window.opener.model.permaJS || "", -1);
+
+                function saveAndClose() {
+                    window.opener.model.permaJS = editor.getValue();
+                    window.opener.localStorage.setItem('webedit_v3_final', JSON.stringify(window.opener.model));
+                    alert("Código Global guardado");
+                    window.close();
+                }
+            </script>
+        </body>
+        </html>
+    `);
+}
+
     const body = document.body;
     const themeBtn = document.getElementById('theme-btn');
     const devBtn = document.getElementById('dev-btn');
@@ -133,8 +173,18 @@
 
     let model = JSON.parse(localStorage.getItem('webedit_v3_final')) || {
         currentId: 1,
+        permaJS: "",
         slots: [{ id: 1, name: "Main", code: "<h1>TryIt v3.2.2</h1>", mode: "html", bookmarks: {} }]
     };
+
+    function openPermaJS() {
+    const code = prompt("Introduce tu JS Global (se aplicará a todos los proyectos):", model.permaJS || "");
+    if (code !== null) {
+        model.permaJS = code;
+        localStorage.setItem('webedit_v3_final', JSON.stringify(model));
+        alert("Código Global guardado. Se aplicará en la próxima ejecución.");
+    }
+}
 
     function saveCurrent() {
         if (isLoading) return;
@@ -228,6 +278,8 @@
     function execute() {
         const code = aceEditor.getValue();
         const mode = modeSelect.value;
+        const code = aceEditor.getValue();
+        const globalCode = model.permaJS || "";
         const erudaScript = erudaEnabled ? `<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script><script>eruda.init();eruda.show();<\/script>` : "";
         
         const bridge = `
@@ -255,10 +307,17 @@
 
         let content = "";
         if (mode === 'html') {
-            content = `<!DOCTYPE html><html><head><meta charset="UTF-8">${bridge}${erudaScript}</head><body>${code}</body></html>`;
+            
+            content = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <script>${globalCode}<\/script>
+            ${bridge}${erudaScript}</head><body>${code}</body></html>`;
         } else {
             content = `<!DOCTYPE html><html><head><meta charset="UTF-8">${jsMirrorStyle}${bridge}${erudaScript}</head>
-            <body><div id="local-js-console">> Ejecutando JS...\n\n</div><script>window.onload = () => { try { ${code} } catch(e) { console.log("❌ ERROR: " + e.message); } };<\/script></body></html>`;
+            <body><div id="local-js-console">> Ejecutando JS...\n\n</div>
+            <script>
+                try { ${globalCode} } catch(e) { console.log("Error en Global JS: " + e.message); }
+                window.onload = () => { try { ${code} } catch(e) { console.log("❌ ERROR: " + e.message); } };
+            <\/script></body></html>`;
         }
 
         if (externalWindow && !externalWindow.closed) {
