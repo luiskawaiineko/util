@@ -118,6 +118,9 @@
 function openPermaEditor() {
     const win = window.open("", "PermaJSEditor", "width=600,height=400");
     
+    // Guardamos la referencia al objeto antes de escribir
+    const modelData = window.model; 
+
     win.document.write(`
         <html>
         <head>
@@ -132,25 +135,30 @@ function openPermaEditor() {
         <body>
             <div class="bar">
                 <span>Configuración Global (PermaJS)</span>
-                <button onclick="saveAndClose()">Guardar y Cerrar</button>
+                <button onclick="save()">Guardar y Cerrar</button>
             </div>
             <div id="editor"></div>
             <script>
                 const editor = ace.edit("editor");
                 editor.setTheme("ace/theme/monokai");
                 editor.session.setMode("ace/mode/javascript");
-                editor.setValue(window.opener.model.permaJS || "", -1);
+                
+                // Usamos una pequeña pausa para asegurar que el opener esté listo
+                setTimeout(() => {
+                    const parentModel = window.opener.model;
+                    editor.setValue(parentModel.permaJS || "", -1);
+                }, 100);
 
-                function saveAndClose() {
+                function save() {
                     window.opener.model.permaJS = editor.getValue();
                     window.opener.localStorage.setItem('webedit_v3_final', JSON.stringify(window.opener.model));
-                    alert("Código Global guardado");
                     window.close();
                 }
             <\/script>
         </body>
         </html>
     `);
+    win.document.close(); // Importante cerrar el stream de escritura
 }
 
     const body = document.body;
