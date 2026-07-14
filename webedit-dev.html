@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webedit Pro - Bookmarks</title>
+    <title>Webedit 1.1.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ext-language_tools.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.0/ext-beautify.min.js"></script>
@@ -178,7 +178,7 @@ function openPermaEditor() {
     let externalWindow = null;
     let currentBlobUrl = null;
 
-    let model = JSON.parse(localStorage.getItem('webedit_v3_final')) || {
+    window.model = JSON.parse(localStorage.getItem('webedit_v3_final')) || {
         currentId: 1,
         permaJS: "",
         slots: [{ id: 1, name: "Main", code: "<h1>TryIt v3.2.2</h1>", mode: "html", bookmarks: {} }]
