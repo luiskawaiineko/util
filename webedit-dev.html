@@ -115,10 +115,9 @@
         fontSize: "14px"
     });
 
-    function openPermaEditor() {
+function openPermaEditor() {
     const win = window.open("", "PermaJSEditor", "width=600,height=400");
     
-    // Contenido del nuevo editor
     win.document.write(`
         <html>
         <head>
@@ -148,7 +147,7 @@
                     alert("Código Global guardado");
                     window.close();
                 }
-            </script>
+            <\/script>
         </body>
         </html>
     `);
@@ -279,8 +278,7 @@
         const code = aceEditor.getValue();
         const mode = modeSelect.value;
         const globalCode = model.permaJS || "";
-        const erudaScript = erudaEnabled ? `<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script><script>eruda.init();eruda.show();<\/script>` : "";
-        
+        const erudaScript = erudaEnabled ? `<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script><script>eruda.init();eruda.show();<\/script>` : "";        
         const bridge = `
             <script>
                 (function() {
